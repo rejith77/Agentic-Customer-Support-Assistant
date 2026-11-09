@@ -1,0 +1,17 @@
+services:
+  customer-support:
+    build: .
+    env_file:
+      - .env
+    environment:
+      CUSTOMER_WORKBOOK: /app/data/Sample_Customer_Data.xlsx
+      REFUND_POLICY_PDF: /app/data/Detailed_Sample_Refund_Policy.pdf
+      FAISS_INDEX_DIR: /app/data/faiss_index
+    ports:
+      - "8000:8000"
+    volumes:
+      - faiss-data:/app/data/faiss_index
+    restart: unless-stopped
+
+volumes:
+  faiss-data:

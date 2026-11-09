@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Customer Support Chat</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #182230; background: #f4f7fb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    .app { width: min(850px, 100%); height: min(820px, calc(100vh - 48px)); min-height: 500px; display: flex; flex-direction: column; background: white; border: 1px solid #e3e8ef; border-radius: 18px; box-shadow: 0 16px 50px #14223812; overflow: hidden; }
+    header { padding: 20px 24px; border-bottom: 1px solid #e8edf3; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    h1 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
+    .subtitle { margin-top: 4px; color: #667085; font-size: 13px; }
+    .status { color: #18794e; background: #eaf7ef; border-radius: 999px; padding: 6px 10px; font-size: 12px; white-space: nowrap; }
+    #messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .welcome { margin: auto; max-width: 460px; text-align: center; color: #667085; line-height: 1.55; }
+    .welcome strong { display: block; color: #182230; font-size: 20px; margin-bottom: 6px; }
+    .message { max-width: min(78%, 600px); padding: 12px 15px; border-radius: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .user { align-self: flex-end; background: #2359d1; color: white; border-bottom-right-radius: 5px; }
+    .assistant { align-self: flex-start; background: #f1f4f8; color: #182230; border-bottom-left-radius: 5px; }
+    .meta { margin-top: 8px; color: #667085; font-size: 11px; }
+    .assistant details { margin-top: 10px; font-size: 12px; color: #475467; }
+    .assistant summary { cursor: pointer; }
+    .evidence { margin: 6px 0 0; padding-left: 18px; white-space: pre-wrap; }
+    .error { color: #b42318; background: #fef3f2; }
+    .typing { color: #667085; font-size: 13px; padding: 0 24px 10px; min-height: 30px; }
+    form { border-top: 1px solid #e8edf3; padding: 16px; display: flex; gap: 10px; align-items: flex-end; }
+    textarea { flex: 1; min-height: 48px; max-height: 140px; resize: vertical; border: 1px solid #d0d5dd; border-radius: 12px; padding: 13px 14px; font: inherit; outline: none; }
+    textarea:focus { border-color: #5279dc; box-shadow: 0 0 0 3px #2359d11c; }
+    button { border: 0; border-radius: 11px; background: #2359d1; color: white; font: inherit; font-weight: 600; padding: 13px 18px; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .hint { padding: 0 20px 12px; color: #98a2b3; text-align: center; font-size: 11px; }
+    @media (max-width: 560px) { body { padding: 0; } .app { height: 100vh; min-height: 0; border: 0; border-radius: 0; } header { padding: 16px; } #messages { padding: 18px 14px; } .message { max-width: 90%; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div><h1>Customer Support Assistant</h1><div class="subtitle">Ask about customers, orders, products, or the refund policy.</div></div>
+      <span class="status">Ready</span>
+    </header>
+    <section id="messages" aria-live="polite">
+      <div class="welcome"><strong>How can I help?</strong>Try “What is the status of order O005?” or “How long does a refund take?”</div>
+    </section>
+    <div class="typing" id="typing" aria-live="polite"></div>
+    <form id="chat-form">
+      <textarea id="question" placeholder="Type your message…" aria-label="Your message" required></textarea>
+      <button id="send" type="submit">Send</button>
+    </form>
+    <div class="hint">Enter to send · Shift+Enter for a new line</div>
+  </main>
+  <script>
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('question');
+    const messages = document.getElementById('messages');
+    const send = document.getElementById('send');
+    const typing = document.getElementById('typing');
+
+    function addMessage(text, role, data = {}) {
+      const welcome = messages.querySelector('.welcome');
+      if (welcome) welcome.remove();
+      const bubble = document.createElement('article');
+      bubble.className = `message ${role}${data.error ? ' error' : ''}`;
+      const body = document.createElement('div');
+      body.textContent = text;
+      bubble.appendChild(body);
+      if (role === 'assistant' && data.route) {
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = `Source: ${data.route}`;
+        bubble.appendChild(meta);
+      }
+      if (role === 'assistant' && data.evidence?.length) {
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        summary.textContent = 'Retrieved policy passages';
+        const list = document.createElement('ul');
+        list.className = 'evidence';
+        for (const passage of data.evidence) {
+          const item = document.createElement('li');
+          item.textContent = passage;
+          list.appendChild(item);
+        }
+        details.append(summary, list);
+        bubble.appendChild(details);
+      }
+      messages.appendChild(bubble);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const question = input.value.trim();
+      if (!question || send.disabled) return;
+      addMessage(question, 'user');
+      input.value = '';
+      send.disabled = true;
+      typing.textContent = 'Assistant is thinking…';
+      try {
+        const response = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question })
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || 'The request failed. Please try again.');
+        addMessage(payload.answer, 'assistant', { route: payload.route, evidence: payload.evidence });
+      } catch (error) {
+        addMessage(error.message || 'Could not reach the support service.', 'assistant', { error: true });
+      } finally {
+        send.disabled = false;
+        typing.textContent = '';
+        input.focus();
+      }
+    });
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+  </script>
+</body>
+</html>
