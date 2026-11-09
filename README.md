@@ -2,26 +2,10 @@
 
 A small customer support API built with **FastAPI**, **LangGraph**, Excel lookups, and **FAISS RAG** over the refund policy PDF. The supervisor chooses the Excel agent, the PDF RAG pipeline, or both. A single validator prepares the response from the retrieved material.
 
+
 ## Architecture
 
-```mermaid
-flowchart TD
-  U[Customer] --> API[FastAPI /chat]
-  API --> S[Supervisor Agent]
-  S -->|customer, order, product| X[Excel Agent]
-  S -->|policy question| R[PDF RAG Pipeline]
-  S -->|cross source question| B[Excel Agent + PDF RAG]
-  S -->|general or unclear| V[Response Validator]
-  X --> V
-  R --> V
-  B --> V
-  X --> E[(Customers, Orders, Products worksheets)]
-  B --> E
-  R --> F[(FAISS index)]
-  B --> F
-  P[Refund Policy PDF] --> F
-  V --> API
-```
+![Architecture Diagram](images/mermaid-diagram.png)
 
 ## Workflow and technology
 
@@ -38,11 +22,17 @@ flowchart TD
 - **FAISS + PyPDF** index and retrieve excerpts from the refund policy PDF.
 - **openpyxl** reads the Excel worksheets.
 
+## Chat Interface
+
+![Chat Interface](images/chats.png)
+
 ## LangSmith monitoring
 
 The app supports LangSmith tracing for LangGraph runs, model calls, and PDF retrieval. Copy `LANGSMITH_API_KEY` from your [LangSmith settings](https://smith.langchain.com/) into `.env`, and set `LANGSMITH_TRACING=true`. Traces are grouped under the `LANGSMITH_PROJECT` name (default: `customer-support-assistant`). `LANGSMITH_ENDPOINT` defaults to the LangSmith SaaS endpoint.
 
 The trace can include the user's question, generated response, retrieved policy text, and Excel facts used to answer. Use sample or appropriately approved customer data when sending traces to LangSmith.
+
+![LangSmith Monitoring](images/monitoring.png)
 
 ## Data limitations
 
